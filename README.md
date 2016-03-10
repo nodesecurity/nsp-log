@@ -6,7 +6,11 @@ This is the logger we use for backend stuff for the node security platform. It s
 
 ```js
 const Logger = require('nsp-log');
-const logger = new Logger('module_name', 'rabbit_exchange_name', { /* rabbit config */ });
+const logger = new Logger({
+  name: 'module_name',
+  exchange: 'rabbit_exchange_name',
+  connection: { /* rabbit config */ }
+});
 
 logger.log('hi');
 ```

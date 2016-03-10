@@ -3,18 +3,18 @@
 const Util = require('util');
 
 class Logger {
-    constructor(name, exchange, config) {
+    constructor(options) {
 
-        this.name = name;
-        this.exchange = exchange;
-        this.config = config;
+        this.name = options.name;
+        this.exchange = options.exchange;
+        this.connection = options.connection;
     }
 
     _connect() {
 
         // either we already have a connection, or we don't want one
         if (this.rabbit ||
-            !this.config) {
+            !this.connection) {
 
             return Promise.resolve();
         }
@@ -22,7 +22,7 @@ class Logger {
         // late require because simply requiring wascally seems to hold the process open
         this.rabbit = require('wascally');
 
-        const connection = Object.assign({}, this.config, { replyQueue: false });
+        const connection = Object.assign({}, this.connection, { replyQueue: false });
         return this.rabbit.configure({
             connection: connection,
             exchanges: [{
