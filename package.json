@@ -1,0 +1,14 @@
+{
+  "name": "nsp-log",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+  },
+  "keywords": [],
+  "author": "Nathan LaFreniere <quitlahok@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "wascally": "^0.2.10"
+  }
+}
