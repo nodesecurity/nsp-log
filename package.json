@@ -1,10 +1,9 @@
 {
   "name": "nsp-log",
   "version": "1.0.0",
-  "description": "",
+  "description": "a logger that targets rabbitmq that we use for nsp stuff",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "keywords": [],
   "author": "Nathan LaFreniere <quitlahok@gmail.com>",
   "license": "MIT",
