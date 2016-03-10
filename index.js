@@ -8,6 +8,7 @@ class Logger {
         this.name = options.name;
         this.exchange = options.exchange;
         this.connection = options.connection;
+        this.disabled = options.hasOwnProperty('disable') ? options.disable : false;
     }
 
     _connect() {
@@ -34,6 +35,10 @@ class Logger {
     }
 
     _log(type, tags, args) {
+
+        if (this.disabled) {
+            return Promise.resolve();
+        }
 
         const message = Util.format.apply(null, args);
         return this._connect().then(() => {

@@ -9,6 +9,7 @@ const Logger = require('nsp-log');
 const logger = new Logger({
   name: 'module_name',
   exchange: 'rabbit_exchange_name',
+  disable: false, // if set to true all the logging methods will be silently ignored
   connection: { /* rabbit config */ }
 });
 
