@@ -1,11 +1,13 @@
 'use strict';
 
+const Util = require('util');
+
 class Logger {
     constructor(name, exchange, config) {
 
         this.name = name;
         this.exchange = exchange;
-        this.config = Object.assign({}, config, { replyQueue: false }); // forcibly disable the automatic reply queue
+        this.config = config;
     }
 
     _connect() {
@@ -19,8 +21,10 @@ class Logger {
 
         // late require because simply requiring wascally seems to hold the process open
         this.rabbit = require('wascally');
+
+        const connection = Object.assign({}, this.config, { replyQueue: false });
         return this.rabbit.configure({
-            connection: this.config,
+            connection: connection,
             exchanges: [{
                 name: this.exchange,
                 type: 'fanout',
@@ -29,44 +33,46 @@ class Logger {
         });
     }
 
-    _log(type, tags, message) {
+    _log(type, tags, args) {
 
+        const message = Util.format.apply(null, args);
         return this._connect().then(() => {
 
             // user didn't want a connection, so just dump to the console
             if (!this.rabbit) {
-                console.log(`${type} [${tags.join(',')}]: ${message}`);
+                console.log(`${this.name}/${type} [${tags.join(',')}]: ${message}`);
                 return Promise.resolve();
             }
 
+            const fullTags = [this.name].concat(tags);
             return this.rabbit.publish(this.exchange, {
                 type: type,
                 body: {
-                    tags: tags,
+                    tags: fullTags,
                     message: message
                 }
             });
         });
     }
 
-    log(message) {
+    log() {
 
-        this._log('log', [this.name, 'info'], message);
+        this._log('log', ['info'], arguments);
     }
 
-    info(message) {
+    info() {
 
-        this._log('log', [this.name, 'info'], message);
+        this._log('log', ['info'], arguments);
     }
 
-    debug(message) {
+    debug() {
 
-        this._log('log', [this.name, 'debug'], message);
+        this._log('log', ['debug'], arguments);
     }
 
-    error(message) {
+    error() {
 
-        this._log('error', [this.name, 'error'], message);
+        this._log('error', ['error'], arguments);
     }
 }
 
