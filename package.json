@@ -3,11 +3,21 @@
   "version": "1.1.0",
   "description": "a logger that targets rabbitmq that we use for nsp stuff",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "lint": "eslint ."
+  },
   "keywords": [],
   "author": "Nathan LaFreniere <quitlahok@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "wascally": "^0.2.10"
-  }
+    "rabbot": "^1.0.3"
+  },
+  "devDependencies": {
+    "eslint": "^3.0.1",
+    "eslint-config-nodesecurity": "^1.3.1",
+    "git-validate": "^2.1.4"
+  },
+  "pre-commit": [
+    "lint"
+  ]
 }
