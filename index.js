@@ -1,85 +1,149 @@
 'use strict';
 
-const Util = require('util');
+const Assert = require('assert');
+const Logging = require('@google-cloud/logging');
 
-class Logger {
-  constructor(options) {
+class NSPConsoleLogger {
+  _prefix(level, labels = {}) {
 
-    this.name = options.name;
-    this.exchange = options.exchange;
-    this.connection = options.connection;
-    this.disabled = options.hasOwnProperty('disable') ? options.disable : false;
-  }
-
-  _connect() {
-
-    // either we already have a connection, or we don't want one
-    if (this.rabbit ||
-      !this.connection) {
-
-      return Promise.resolve();
+    let label = '';
+    for (const key in labels) {
+      label += `${key}:${labels[key]} `;
     }
 
-    // late require because simply requiring wascally seems to hold the process open
-    // we've moved to rabbot but will keep the late require
-    this.rabbit = require('rabbot');
+    let result = `[${level}]`;
+    if (label) {
+      result += ` (${label.trim()})`;
+    }
 
-    const connection = Object.assign({}, this.connection, { replyQueue: false });
-    return this.rabbit.configure({
-      connection: connection,
-      exchanges: [{
-        name: this.exchange,
-        type: 'fanout',
-        autoDelete: false
-      }]
-    });
+    return result;
   }
 
-  _log(type, tags, args) {
+  log(data, labels) {
+
+    return console.log(this._prefix('log', labels), data);
+  }
+
+  info(data, labels) {
+
+    return console.log(this._prefix('info', labels), data);
+  }
+
+  debug(data, labels) {
+
+    return console.log(this._prefix('debug', labels), data);
+  }
+
+  warn(data, labels) {
+
+    return console.warn(this._prefix('warn', labels), data);
+  }
+
+  error(data, labels) {
+
+    return console.error(this._prefix('error', labels), data);
+  }
+}
+
+class NSPLogger {
+  constructor(options) {
+
+    this.disabled = options.hasOwnProperty('disable') ? options.disable : false;
+    if (this.disabled) {
+      return;
+    }
+
+    Assert(typeof options.name === 'string' && options.name, 'name must be a string');
+    this.name = options.name;
+
+    if (typeof options.resource === 'object' &&
+        options.resource !== null &&
+        options.resource.hasOwnProperty('type')) {
+
+      this.resource = options.resource;
+    }
+    else if (typeof options.project_id === 'string' && options.project_id) {
+      this.resource = {
+        type: 'global',
+        labels: {
+          project_id: options.project_id
+        }
+      };
+    }
+    else if (process.env.GCLOUD_PROJECT) {
+      this.resource = {
+        type: 'global',
+        labels: {
+          project_id: process.env.GCLOUD_PROJECT
+        }
+      };
+    }
+
+    if (!this.resource) {
+      return new NSPConsoleLogger();
+    }
+
+    this.logger = Logging(options.auth).log(this.name, { removeCircular: true });
+  }
+
+  _log(level, data, labels = {}) {
 
     if (this.disabled) {
       return Promise.resolve();
     }
 
-    const message = Util.format.apply(null, args);
-    return this._connect().then(() => {
+    const metadata = {
+      timestamp: new Date(),
+      operation: {
+        producer: this.name
+      },
+      resource: this.resource,
+      labels
+    };
 
-      // user didn't want a connection, so just dump to the console
-      if (!this.rabbit) {
-        console.log(`${this.name}/${type} [${tags.join(',')}]: ${message}`);
-        return Promise.resolve();
-      }
+    let message;
+    if (level === 'error' &&
+        data instanceof Error) {
 
-      const fullTags = [this.name].concat(tags);
-      return this.rabbit.publish(this.exchange, {
-        type: type,
-        body: {
-          tags: fullTags,
-          message: message
+      message = {
+        message: data.stack,
+        serviceContext: {
+          service: this.name
         }
-      });
+      };
+    }
+    else {
+      message = data;
+    }
+
+    const entry = this.logger.entry(metadata, message);
+    return this.logger[level](entry).catch((err) => {
+
+      console.error(err.stack);
+      return Promise.resolve();
     });
+
   }
 
-  log() {
+  log(entry, labels) {
 
-    this._log('log', ['info'], arguments);
+    this._log('info', entry, labels);
   }
 
-  info() {
+  info(entry, labels) {
 
-    this._log('log', ['info'], arguments);
+    this._log('info', entry, labels);
   }
 
-  debug() {
+  debug(entry, labels) {
 
-    this._log('log', ['debug'], arguments);
+    this._log('debug', entry, labels);
   }
 
-  error() {
+  error(entry, labels) {
 
-    this._log('error', ['error'], arguments);
+    this._log('error', entry, labels);
   }
 }
 
-module.exports = Logger;
+module.exports = NSPLogger;
