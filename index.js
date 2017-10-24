@@ -1,148 +1,80 @@
 'use strict';
 
 const Assert = require('assert');
-const Logging = require('@google-cloud/logging');
+const Stringify = require('json-stringify-safe');
 
-class NSPConsoleLogger {
-  _prefix(level, labels = {}) {
-
-    let label = '';
-    for (const key in labels) {
-      label += `${key}:${labels[key]} `;
-    }
-
-    let result = `[${level}]`;
-    if (label) {
-      result += ` (${label.trim()})`;
-    }
-
-    return result;
-  }
-
-  log(data, labels) {
-
-    return console.log(this._prefix('log', labels), data);
-  }
-
-  info(data, labels) {
-
-    return console.log(this._prefix('info', labels), data);
-  }
-
-  debug(data, labels) {
-
-    return console.log(this._prefix('debug', labels), data);
-  }
-
-  warn(data, labels) {
-
-    return console.warn(this._prefix('warn', labels), data);
-  }
-
-  error(data, labels) {
-
-    return console.error(this._prefix('error', labels), data);
-  }
-}
+const internals = {};
+internals.symbols = {
+  log: Symbol('log')
+};
 
 class NSPLogger {
-  constructor(options) {
+  constructor({ disabled, name, labels = {} }) {
 
-    this.disabled = options.hasOwnProperty('disable') ? options.disable : false;
+    this.disabled = disabled;
+
+    this.name = name || process.env.HOSTNAME;
+    Assert(typeof this.name === 'string' && this.name, 'name must be a string, or HOSTNAME must be exported');
+
+    this.labels = labels;
+  }
+
+  [internals.symbols.log](severity, message, labels = {}) {
+
     if (this.disabled) {
       return;
     }
 
-    Assert(typeof options.name === 'string' && options.name, 'name must be a string');
-    this.name = options.name;
+    const now = Date.now();
 
-    if (typeof options.resource === 'object' &&
-        options.resource !== null &&
-        options.resource.hasOwnProperty('type')) {
-
-      this.resource = options.resource;
-    }
-    else if (typeof options.project_id === 'string' && options.project_id) {
-      this.resource = {
-        type: 'global',
-        labels: {
-          project_id: options.project_id
-        }
-      };
-    }
-    else if (process.env.GCLOUD_PROJECT) {
-      this.resource = {
-        type: 'global',
-        labels: {
-          project_id: process.env.GCLOUD_PROJECT
-        }
-      };
-    }
-
-    if (!this.resource) {
-      return new NSPConsoleLogger();
-    }
-
-    this.logger = Logging(options.auth).log(this.name, { removeCircular: true });
-  }
-
-  _log(level, data, labels = {}) {
-
-    if (this.disabled) {
-      return Promise.resolve();
-    }
-
-    const metadata = {
-      timestamp: new Date(),
-      operation: {
-        producer: this.name
-      },
-      resource: this.resource,
-      labels
+    const payload = {
+      severity,
+      message,
+      labels: Object.assign({}, this.labels, labels),
+      timestamp: {
+        seconds: Math.floor(now / 1000),
+        nanos: Math.round(now % 1000) * 1000000
+      }
     };
 
-    let message;
-    if (level === 'error' &&
-        data instanceof Error) {
-
-      message = {
-        message: data.stack,
-        serviceContext: {
-          service: this.name
-        }
+    if (['CRITICAL', 'ERROR'].includes(severity)) {
+      payload.message = message instanceof Error ? message.stack : message;
+      payload.serviceContext = {
+        service: this.name
       };
     }
-    else {
-      message = data;
-    }
 
-    const entry = this.logger.entry(metadata, message);
-    return this.logger[level](entry).catch((err) => {
-
-      console.error(err.stack);
-      return Promise.resolve();
-    });
-
+    console.log(Stringify(payload));
   }
 
-  log(entry, labels) {
+  log(message, labels) {
 
-    this._log('info', entry, labels);
+    return this[internals.symbols.log]('INFO', message, labels);
   }
 
-  info(entry, labels) {
+  info(message, labels) {
 
-    this._log('info', entry, labels);
+    return this[internals.symbols.log]('INFO', message, labels);
   }
 
-  debug(entry, labels) {
+  debug(message, labels) {
 
-    this._log('debug', entry, labels);
+    return this[internals.symbols.log]('DEBUG', message, labels);
   }
 
-  error(entry, labels) {
+  warn(message, labels) {
 
-    this._log('error', entry, labels);
+    return this[internals.symbols.log]('WARNING', message, labels);
+  }
+
+  error(message, labels) {
+
+    return this[internals.symbols.log]('ERROR', message, labels);
+  }
+
+  critical(message, labels) {
+
+    return this[internals.symbols.log]('CRITICAL', message, labels);
   }
 }
 
