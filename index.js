@@ -1,7 +1,7 @@
 'use strict';
 
 const Assert = require('assert');
-const Stringify = require('json-stringify-safe');
+const Stringify = require('fast-safe-stringify');
 
 const internals = {};
 internals.symbols = {
@@ -9,7 +9,7 @@ internals.symbols = {
 };
 
 class NSPLogger {
-  constructor({ disabled, name, labels = {} }) {
+  constructor({ disabled, name, handleExceptions = false, labels = {} }) {
 
     this.disabled = disabled;
 
@@ -17,6 +17,20 @@ class NSPLogger {
     Assert(typeof this.name === 'string' && this.name, 'name must be a string, or HOSTNAME must be exported');
 
     this.labels = labels;
+
+    if (handleExceptions) {
+      process.on('uncaughtException', (err) => {
+
+        this.critical(err, { source: 'uncaughtException' });
+        process.exit(1);
+      });
+
+      process.on('unhandledRejection', (err) => {
+
+        this.critical(err, { source: 'unhandledRejection' });
+        process.exit(1);
+      });
+    }
   }
 
   [internals.symbols.log](severity, message, labels = {}) {
@@ -28,6 +42,7 @@ class NSPLogger {
     const now = Date.now();
 
     const payload = {
+      log_name: this.name,
       severity,
       message,
       labels: Object.assign({}, this.labels, labels),
