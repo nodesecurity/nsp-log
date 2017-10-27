@@ -1,6 +1,6 @@
 {
   "name": "nsp-log",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "a logger that targets rabbitmq that we use for nsp stuff",
   "main": "index.js",
   "scripts": {
