@@ -42,7 +42,6 @@ class NSPLogger {
     const now = Date.now();
 
     const payload = {
-      log_name: this.name,
       severity,
       message,
       labels: Object.assign({}, this.labels, labels),
